@@ -810,10 +810,10 @@ int main(int argc, char** argv)
     }
 
     if (getenv("PPD")) {
-        strncpy(job->ppdfile, getenv("PPD"), 2048);
+        strlcpy(job->ppdfile, getenv("PPD"), 2048);
         spooler = SPOOLER_CUPS;
 	if (getenv("CUPS_SERVERBIN"))
-	    strncpy(cupsfilterpath, getenv("CUPS_SERVERBIN"),
+	    strlcpy(cupsfilterpath, getenv("CUPS_SERVERBIN"),
 		    sizeof(cupsfilterpath));
     }
 
@@ -833,11 +833,11 @@ int main(int argc, char** argv)
         /* PPD file name given via the command line
            allow duplicates, and use the last specified one */
             while ((str = arglist_get_value(arglist, "-p"))) {
-                strncpy(job->ppdfile, str, 2048);
+                strlcpy(job->ppdfile, str, 2048);
                 arglist_remove(arglist, "-p");
             }
 	    while ((str = arglist_get_value(arglist, "--ppd"))) {
-	        strncpy(job->ppdfile, str, 2048);
+	        strlcpy(job->ppdfile, str, 2048);
 	        arglist_remove(arglist, "--ppd");
 	    }
 

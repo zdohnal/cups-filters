@@ -222,7 +222,7 @@ call_backend(char *uri,                 /* I - URI of final destination */
   * Build the backend command line...
   */
 
-  strncpy(scheme, uri, sizeof(scheme));
+  strlcpy(scheme, uri, sizeof(scheme));
   if ((ptr = strchr(scheme, ':')) != NULL)
     *ptr = '\0';
 

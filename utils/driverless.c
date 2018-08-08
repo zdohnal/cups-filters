@@ -226,13 +226,13 @@ list_printers (int mode)
 	strncpy(model, "Unknown", sizeof(model));
 	
 	if (txt_usb_mfg[0] != '\0') {
-	  strncpy(make, txt_usb_mfg, sizeof(make));
+	  strlcpy(make, txt_usb_mfg, sizeof(make));
 	  ptr = device_id + strlen(device_id);
 	  snprintf(ptr, sizeof(device_id) - (size_t)(ptr - device_id),
 		   "MFG:%s;", txt_usb_mfg);
 	}
 	if (txt_usb_mdl[0] != '\0') {
-	  strncpy(model, txt_usb_mdl, sizeof(model));
+	  strlcpy(model, txt_usb_mdl, sizeof(model));
 	  ptr = device_id + strlen(device_id);
 	  snprintf(ptr, sizeof(device_id) - (size_t)(ptr - device_id),
 		   "MDL:%s;", txt_usb_mdl);
@@ -242,7 +242,7 @@ list_printers (int mode)
 	    if ((ptr = txt_product + strlen(txt_product) - 1) > txt_product &&
 		*ptr == ')')
 	      *ptr = '\0';
-	    strncpy(model, txt_product + 1, sizeof(model));
+	    strlcpy(model, txt_product + 1, sizeof(model));
 	  } else
 	    strncpy(model, txt_product, sizeof(model));
 	} else if (txt_ty[0] != '\0') {
@@ -251,7 +251,7 @@ list_printers (int mode)
 	    *ptr = '\0';
 	}
 	if (txt_pdl[0] != '\0')
-	  strncpy(pdl, txt_pdl, sizeof(pdl));
+	  strlcpy(pdl, txt_pdl, sizeof(pdl));
 
 	if (!device_id[0] && strcasecmp(model, "Unknown")) {
 	  if (make[0])

@@ -655,7 +655,7 @@ exec_filters(cups_array_t  *filters,	/* I - Array of filters to run */
     next = (char *)cupsArrayNext(filters);
 
     if (filter[0] == '/')
-      strncpy(program, filter, sizeof(program));
+      strlcpy(program, filter, sizeof(program));
     else
     {
       if ((cups_serverbin = getenv("CUPS_SERVERBIN")) == NULL)

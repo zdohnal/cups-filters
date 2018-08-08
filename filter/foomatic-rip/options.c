@@ -1913,7 +1913,7 @@ int ppd_supports_pdf()
      * line */
     if (startswith(cmd, "gs"))
     {
-        strncpy(cmd_pdf, cmd, 4096);
+        strlcpy(cmd_pdf, cmd, 4096);
         return 1;
     }
 
