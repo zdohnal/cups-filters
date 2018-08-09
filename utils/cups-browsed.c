@@ -7878,7 +7878,7 @@ read_configuration (const char *filename)
 	debug_printf("Invalid %s value: %d\n",
 		     line, t);
     } else if (!strcasecmp(line, "DomainSocket") && value) {
-      if (value[0] != '\0')
+      if (DomainSocket == NULL && value[0] != '\0')
 	DomainSocket = strdup(value);
     } else if ((!strcasecmp(line, "HttpLocalTimeout") || !strcasecmp(line, "HttpRemoteTimeout")) && value) {
       int t = atoi(value);
@@ -8047,6 +8047,10 @@ read_configuration (const char *filename)
 	}
       }
       cupsArrayAdd (clusters, cluster);
+      if (start != NULL) {
+        free(start);
+        start = NULL;
+      }
       continue;
     cluster_fail:
       if (cluster) {
@@ -8062,13 +8066,17 @@ read_configuration (const char *filename)
 	free(cluster);
         cluster = NULL;
       }
+      if (start != NULL) {
+        free(start);
+        start = NULL;
+      }
     } else if (!strcasecmp(line, "LoadBalancing") && value) {
       if (!strncasecmp(value, "QueueOnClient", 13))
 	LoadBalancingType = QUEUE_ON_CLIENT;
       else if (!strncasecmp(value, "QueueOnServers", 14))
 	LoadBalancingType = QUEUE_ON_SERVERS;
     } else if (!strcasecmp(line, "DefaultOptions") && value) {
-      if (strlen(value) > 0)
+      if (DefaultOptions == NULL && strlen(value) > 0)
 	DefaultOptions = strdup(value);
     } else if (!strcasecmp(line, "AutoShutdown") && value) {
       char *p, *saveptr;
@@ -8786,6 +8794,11 @@ fail:
   /* Close log file if we have one */
   if (debug_logfile == 1)
     stop_debug_logging();
+  
+  if (DefaultOptions != NULL)
+    free(DefaultOptions);
+  if (DomainSocket != NULL)
+    free(DomainSocket);
 
   return ret;
 

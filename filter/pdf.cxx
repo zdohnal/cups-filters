@@ -759,6 +759,8 @@ extern "C" int pdf_fill_form(pdf_t *doc, opt_t *opt)
         int len = utf8_to_utf16(fill_with, &fill_with_w);
         if ( !len ) {
             fprintf(stderr, "Bad data for widget: %s.\n", name);
+            if (fill_with_w != NULL)
+              free(fill_with_w);
             continue;
         }
 
@@ -1275,11 +1277,13 @@ static EMB_PARAMS *load_font(const char *font) {
     }
 
     if ( ! (emb->plan & EMB_A_MULTIBYTE) ) {
+        emb_close(emb);
         return NULL;
     }
 
     EMB_PDF_FONTDESCR *fdes=emb_pdf_fontdescr(emb);
     if ( ! fdes ) {
+        emb_close(emb);
         return NULL;
     }
 
@@ -1638,6 +1642,7 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
         else if (ch <= 0xBF)
         {
             /* not a UTF-8 string */
+            free(unicode);
             return 0;
         }
         else if (ch <= 0xDF)
@@ -1658,6 +1663,7 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
         else
         {
             /* not a UTF-8 string */
+            free(unicode);
             return 0;
         }
 
@@ -1666,6 +1672,7 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
             utf8++;
             if ( ! *utf8 ) {
                 /* not a UTF-8 string */
+                free(unicode);
                 return 0;
             }
 
@@ -1673,6 +1680,7 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
 
             if (ch < 0x80 || ch > 0xBF) {
                 /* not a UTF-8 string */
+                free(unicode);
                 return 0;
             }
 
@@ -1682,11 +1690,13 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
 
         if (uni >= 0xD800 && uni <= 0xDFFF) {
             /* not a UTF-8 string */
+            free(unicode);
             return 0;
         }
 
         if (uni > 0x10FFFF) {
             /* not a UTF-8 string */
+            free(unicode);
             return 0;
         }
 
@@ -1699,6 +1709,7 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
     unsigned short * out = (unsigned short *)malloc(len);
 
     if ( ! out ) {
+        free(unicode);
         return 0;
     }
 
@@ -1726,6 +1737,8 @@ static int utf8_to_utf16(const char *utf8, unsigned short **out_ptr)
         head++;
         out++;
     }
+
+    free(unicode);
 
     return (out - *out_ptr) * sizeof (unsigned short);
 }

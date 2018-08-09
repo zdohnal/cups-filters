@@ -666,6 +666,11 @@ int print_file(const char *filename, int convert)
                 ret = print_file("<STDIN>", 0);
 
                 wait_for_process(renderer_pid);
+                if (in != NULL)
+                  fclose(in);
+                if (out != NULL)
+                  fclose(out);
+
                 return ret;
             }
 
@@ -683,6 +688,8 @@ int print_file(const char *filename, int convert)
 
         case UNKNOWN_FILE:
 	    _log("Cannot process \"%s\": Unknown filetype.\n", filename);
+            if (file != NULL)
+              fclose(file);
 	    return 0;
     }
 
@@ -1119,6 +1126,7 @@ int main(int argc, char** argv)
     free_dstr(filelist);
     options_free();
     close_log();
+    free(icc_profile);
 
     argv_free(jclprepend);
     free_dstr(jclappend);

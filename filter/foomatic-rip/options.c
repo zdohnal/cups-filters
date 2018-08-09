@@ -1044,6 +1044,7 @@ int option_set_value(option_t *opt, int optionset, const char *value)
         if (choice && !isempty(choice->command))
             composite_set_values(opt, optionset, choice->command);
     }
+    free(newvalue);
     return 1;
 }
 

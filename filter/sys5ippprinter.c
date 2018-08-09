@@ -570,6 +570,8 @@ exec_filter(const char *filter,		/* I - Filter to execute */
 	dup2(fd, 2);
 	close(fd);
       }
+      else
+        close(fd);
       fcntl(2, F_SETFL, O_NDELAY);
     }
 
@@ -578,6 +580,8 @@ exec_filter(const char *filter,		/* I - Filter to execute */
       dup2(fd, 3);
       close(fd);
     }
+    else
+      close(fd);
     fcntl(3, F_SETFL, O_NDELAY);
 
     if ((fd = open("/dev/null", O_RDWR)) > 4)
@@ -585,6 +589,8 @@ exec_filter(const char *filter,		/* I - Filter to execute */
       dup2(fd, 4);
       close(fd);
     }
+    else
+      close(fd);
     fcntl(4, F_SETFL, O_NDELAY);
 
    /*

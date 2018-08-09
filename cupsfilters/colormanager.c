@@ -272,6 +272,9 @@ _get_colord_profile(const char   *printer_name,     /* Dest name */
       free(qualifier);
     }
 
+    if (icc_profile != NULL)
+      free(icc_profile);
+
     return is_profile_set;
 
 }

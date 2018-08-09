@@ -399,10 +399,14 @@ cupsImageOpen(
   if (status)
   {
     free(img);
+    fclose(fp);
     return (NULL);
   }
   else
+  {
+    fclose(fp);
     return (img);
+  }
 }
 
 
