@@ -1027,6 +1027,7 @@ int main(int argc, char** argv)
                   cmd[0] = '\0';
 
                 snprintf(gstoraster, sizeof(gstoraster), "gs -dQUIET -dDEBUG -dPARANOIDSAFER -dNOPAUSE -dBATCH -dNOINTERPOLATE -dNOMEDIAATTRS -sDEVICE=cups -dShowAcroForm %s -sOutputFile=- -", cmd);
+                free(icc_profile);
             }
 
             /* build Ghostscript/CUPS driver command line */
@@ -1126,7 +1127,6 @@ int main(int argc, char** argv)
     free_dstr(filelist);
     options_free();
     close_log();
-    free(icc_profile);
 
     argv_free(jclprepend);
     free_dstr(jclappend);
