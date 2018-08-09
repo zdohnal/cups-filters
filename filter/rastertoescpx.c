@@ -1443,7 +1443,7 @@ CompressData(ppd_file_t          *ppd,	/* I - PPD file information */
 
     printf("\033i");
     putchar(ctable[PrinterPlanes - 1][plane]);
-    putchar(type != 0);
+    putchar((type != 0) ? '1': '0');
     putchar(BitPlanes);
     putchar(bytes & 255);
     putchar(bytes >> 8);
@@ -1473,7 +1473,7 @@ CompressData(ppd_file_t          *ppd,	/* I - PPD file information */
     bytes *= 8;
 
     printf("\033.");
-    putchar(type != 0);
+    putchar((type != 0) ? '1': '0');
     putchar(ystep);
     putchar(xstep);
     putchar(rows);
