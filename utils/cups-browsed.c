@@ -2301,7 +2301,10 @@ is_disabled(const char *printer, const char *reason) {
 	  pstate = (ipp_pstate_t)ippGetInteger(attr, 0);
 	else if (!strcmp(ippGetName(attr), "printer-state-message") &&
 		 ippGetValueTag(attr) == IPP_TAG_TEXT) {
-	  free(pstatemsg);
+          if (pstatemsg != NULL) {
+	    free(pstatemsg);
+            pstatemsg = NULL;
+          }
 	  p = ippGetString(attr, 0, NULL);
 	  if (p != NULL) pstatemsg = strdup(p);
 	}
@@ -2318,16 +2321,22 @@ is_disabled(const char *printer, const char *reason) {
 	case IPP_PRINTER_IDLE:
 	case IPP_PRINTER_PROCESSING:
 	  ippDelete(response);
-	  free(pstatemsg);
+          if (pstatemsg != NULL) {
+	    free(pstatemsg);
+            pstatemsg = NULL;
+          }
 	  return NULL;
 	case IPP_PRINTER_STOPPED:
 	  ippDelete(response);
 	  if (reason == NULL)
 	    return pstatemsg;
-	  else if (strcasestr(pstatemsg, reason) != NULL)
+	  else if (pstatemsg != NULL && (strcasestr(pstatemsg, reason) != NULL))
 	    return pstatemsg;
 	  else {
-	    free(pstatemsg);
+            if (pstatemsg != NULL) {
+                free(pstatemsg);
+                pstatemsg = NULL;
+            }
 	    return NULL;
 	  }
 	}
@@ -2336,12 +2345,18 @@ is_disabled(const char *printer, const char *reason) {
     debug_printf("No information regarding enabled/disabled found about the requested printer '%s'\n",
 		 printer);
     ippDelete(response);
-    free(pstatemsg);
+    if (pstatemsg != NULL) {
+      free(pstatemsg);
+      pstatemsg = NULL;
+    }
     return NULL;
   }
   debug_printf("ERROR: Request for printer info failed: %s\n",
 	       cupsLastErrorString());
-  free(pstatemsg);
+  if (pstatemsg != NULL) {
+    free(pstatemsg);
+    pstatemsg = NULL;
+  }
   return NULL;
 }
 
@@ -7847,6 +7862,7 @@ read_configuration (const char *filename)
 	if (filter->cregexp)
 	  regfree(filter->cregexp);
 	free(filter);
+        filter = NULL;
       }
     } else if ((!strcasecmp(line, "BrowseInterval") || !strcasecmp(line, "BrowseTimeout")) && value) {
       int t = atoi(value);
@@ -8044,6 +8060,7 @@ read_configuration (const char *filename)
 	  cupsArrayDelete (cluster->members);
 	}
 	free(cluster);
+        cluster = NULL;
       }
     } else if (!strcasecmp(line, "LoadBalancing") && value) {
       if (!strncasecmp(value, "QueueOnClient", 13))
