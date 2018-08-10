@@ -3345,7 +3345,9 @@ on_printer_state_changed (CupsNotifier *object,
 		      valid_dest_found = 1;
 		      dest_host = p->ip ? p->ip : p->host;
 		      dest_port = p->port;
-		      strlcpy(dest_name, remote_cups_queue, sizeof(dest_name));
+		      strncpy(dest_name, remote_cups_queue, sizeof(dest_name));
+                      if (strlen(remote_cups_queue) > 1023)
+                        dest_name[1023] = '\0';
 		      dest_index = i;
 		      debug_printf("Printer %s on host %s, port %d is idle, take this as destination and stop searching.\n",
 				   remote_cups_queue, p->host, p->port);
@@ -3362,8 +3364,9 @@ on_printer_state_changed (CupsNotifier *object,
 			  min_jobs = num_jobs;
 			  dest_host = p->ip ? p->ip : p->host;
 			  dest_port = p->port;
-			  strlcpy(dest_name, remote_cups_queue,
-				  sizeof(dest_name));
+			  strncpy(dest_name, remote_cups_queue, sizeof(dest_name));
+                          if (strlen(remote_cups_queue) > 1023)
+                            dest_name[1023] = '\0';
 			  dest_index = i;
 			}
 			debug_printf("Printer %s on host %s, port %d is printing and it has %d jobs.\n",
@@ -4114,8 +4117,9 @@ create_remote_printer_entry (const char *queue_name,
 				   IPP_TAG_KEYWORD)) != NULL) {
 	debug_printf("  Attr: %s\n", ippGetName(attr));
 	for (i = 0; i < ippGetCount(attr); i ++) {
-	  strlcpy(valuebuffer, ippGetString(attr, i, NULL),
-		  sizeof(valuebuffer));
+	  strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
+          if (strlen(ippGetString(attr, i, NULL)) > 65535)
+            valuebuffer[65535] = '\0';
 	  debug_printf("  Keyword: %s\n", valuebuffer);
 	  if (valuebuffer[0] > '1')
 	    break;
@@ -4146,8 +4150,9 @@ create_remote_printer_entry (const char *queue_name,
 	debug_printf("  Value: %s\n", valuebuffer);
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
-	    strlcpy(valuebuffer, ippGetString(attr, i, NULL),
-		    sizeof(valuebuffer));
+	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
+            if (strlen(ippGetString(attr, i, NULL)) > 65535)
+              valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -4177,8 +4182,9 @@ create_remote_printer_entry (const char *queue_name,
 	debug_printf("  Value: %s\n", valuebuffer);
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
-	    strlcpy(valuebuffer, ippGetString(attr, i, NULL),
-		    sizeof(valuebuffer));
+	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
+            if (strlen(ippGetString(attr, i, NULL)) > 65535)
+              valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -4211,8 +4217,9 @@ create_remote_printer_entry (const char *queue_name,
 	debug_printf("  Value: %s\n", p->queue_name, valuebuffer);
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
-	    strlcpy(valuebuffer, ippGetString(attr, i, NULL),
-		    sizeof(valuebuffer));
+	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
+            if (strlen(ippGetString(attr, i, NULL)) > 65535)
+              valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -5078,7 +5085,9 @@ gboolean update_cups_queues(gpointer unused) {
 	}
       } else {
 	/* Device URI: ipp(s)://<remote host>:631/printers/<remote queue> */
-	strlcpy(device_uri, p->uri, sizeof(device_uri));
+	strncpy(device_uri, p->uri, sizeof(device_uri));
+        if (strlen(p->uri) > HTTP_MAX_URI-1)
+          device_uri[HTTP_MAX_URI-1] = '\0';
 	debug_printf("Print queue %s is for an IPP network printer, or we do not get notifications from CUPS, using direct device URI %s\n",
 		     p->queue_name, device_uri);
       }
@@ -5181,7 +5190,9 @@ gboolean update_cups_queues(gpointer unused) {
 	    cupsFilePrintf(out, "%s\n", line);
 	  } else if (!strncmp(line, "*Default", 8)) {
 	    cont_line_read = 0;
-	    strlcpy(keyword, line + 8, sizeof(keyword));
+	    strncpy(keyword, line + 8, sizeof(keyword));
+            if ((strlen(line) + 8) > 1023)
+              keyword[1023] = '\0';
 	    for (keyptr = keyword; *keyptr; keyptr ++)
 	      if (*keyptr == ':' || isspace(*keyptr & 255))
 		break;
@@ -7635,7 +7646,7 @@ read_configuration (const char *filename)
      in the configuration file is used. */
   while ((i < cupsArrayCount(command_line_config) &&
 	  (value = cupsArrayIndex(command_line_config, i++)) &&
-	  strlcpy(line, value, sizeof(line))) ||
+	  strncpy(line, value, sizeof(line)) && ((strlen(value) > HTTP_MAX_BUFFER-1)? line[HTTP_MAX_BUFFER-1] = '\0':  1)) ||
 	 cupsFileGetConf(fp, line, sizeof(line), &value, &linenum)) {
     if (linenum < 0) {
       /* We are still reading options from the command line ("-o ..."),
@@ -8449,7 +8460,9 @@ int main(int argc, char*argv[]) {
      client.conf files as cups-browsed works only with a local CUPS
      daemon, not with remote ones. */
   if (getenv("CUPS_SERVER") != NULL) {
-    strlcpy(local_server_str, getenv("CUPS_SERVER"), sizeof(local_server_str));
+    strncpy(local_server_str, getenv("CUPS_SERVER"), sizeof(local_server_str));
+    if (strlen(getenv("CUPS_SERVER")) > 1023)
+      local_server_str[1023] = '\0';
   } else {
 #ifdef CUPS_DEFAULT_DOMAINSOCKET
     if (DomainSocket == NULL)

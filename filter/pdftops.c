@@ -426,7 +426,9 @@ main(int  argc,				/* I - Number of command-line args */
 
   if ((val = cupsGetOption("make-and-model", num_options, options)) != NULL)
   {
-    strlcpy(make_model, val, sizeof(make_model));
+    strncpy(make_model, val, sizeof(make_model));
+    if (strlen(val) > 127)
+      make_model[127] = '\0';
     for (ptr = make_model; *ptr; ptr ++)
       if (*ptr == '-') *ptr = ' ';
   }

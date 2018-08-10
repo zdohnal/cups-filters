@@ -660,8 +660,11 @@ exec_filters(cups_array_t  *filters,	/* I - Array of filters to run */
   {
     next = (char *)cupsArrayNext(filters);
 
-    if (filter[0] == '/')
-      strlcpy(program, filter, sizeof(program));
+    if (filter[0] == '/') {
+      strncpy(program, filter, sizeof(program));
+      if (strlen(filter) > 1023)
+        program[1023] = '\0';
+    }
     else
     {
       if ((cups_serverbin = getenv("CUPS_SERVERBIN")) == NULL)

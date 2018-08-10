@@ -93,7 +93,9 @@ void init_cups(list_t *arglist, dstr_t *filelist, jobparams_t *job)
     /* On which queue are we printing?
        CUPS puts the print queue name into the PRINTER environment variable
        when calling filters. */
-    strlcpy(job->printer, getenv("PRINTER"), 256);
+    strncpy(job->printer, getenv("PRINTER"), 256);
+    if (strlen(getenv("PRINTER")) > 255)
+      job->printer[255] = '\0';
 
     free(cups_options);
 }
