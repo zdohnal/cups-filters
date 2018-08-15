@@ -2301,10 +2301,10 @@ is_disabled(const char *printer, const char *reason) {
 	  pstate = (ipp_pstate_t)ippGetInteger(attr, 0);
 	else if (!strcmp(ippGetName(attr), "printer-state-message") &&
 		 ippGetValueTag(attr) == IPP_TAG_TEXT) {
-          if (pstatemsg != NULL) {
+	  if (pstatemsg != NULL) {
 	    free(pstatemsg);
-            pstatemsg = NULL;
-          }
+	    pstatemsg = NULL;
+	  }
 	  p = ippGetString(attr, 0, NULL);
 	  if (p != NULL) pstatemsg = strdup(p);
 	}
@@ -2321,10 +2321,10 @@ is_disabled(const char *printer, const char *reason) {
 	case IPP_PRINTER_IDLE:
 	case IPP_PRINTER_PROCESSING:
 	  ippDelete(response);
-          if (pstatemsg != NULL) {
+	  if (pstatemsg != NULL) {
 	    free(pstatemsg);
-            pstatemsg = NULL;
-          }
+	    pstatemsg = NULL;
+	  }
 	  return NULL;
 	case IPP_PRINTER_STOPPED:
 	  ippDelete(response);
@@ -3346,8 +3346,8 @@ on_printer_state_changed (CupsNotifier *object,
 		      dest_host = p->ip ? p->ip : p->host;
 		      dest_port = p->port;
 		      strncpy(dest_name, remote_cups_queue, sizeof(dest_name));
-                      if (strlen(remote_cups_queue) > 1023)
-                        dest_name[1023] = '\0';
+		      if (strlen(remote_cups_queue) > 1023)
+		        dest_name[1023] = '\0';
 		      dest_index = i;
 		      debug_printf("Printer %s on host %s, port %d is idle, take this as destination and stop searching.\n",
 				   remote_cups_queue, p->host, p->port);
@@ -3365,8 +3365,8 @@ on_printer_state_changed (CupsNotifier *object,
 			  dest_host = p->ip ? p->ip : p->host;
 			  dest_port = p->port;
 			  strncpy(dest_name, remote_cups_queue, sizeof(dest_name));
-                          if (strlen(remote_cups_queue) > 1023)
-                            dest_name[1023] = '\0';
+			  if (strlen(remote_cups_queue) > 1023)
+			    dest_name[1023] = '\0';
 			  dest_index = i;
 			}
 			debug_printf("Printer %s on host %s, port %d is printing and it has %d jobs.\n",
@@ -4118,8 +4118,8 @@ create_remote_printer_entry (const char *queue_name,
 	debug_printf("  Attr: %s\n", ippGetName(attr));
 	for (i = 0; i < ippGetCount(attr); i ++) {
 	  strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
-          if (strlen(ippGetString(attr, i, NULL)) > 65535)
-            valuebuffer[65535] = '\0';
+	  if (strlen(ippGetString(attr, i, NULL)) > 65535)
+	    valuebuffer[65535] = '\0';
 	  debug_printf("  Keyword: %s\n", valuebuffer);
 	  if (valuebuffer[0] > '1')
 	    break;
@@ -4151,8 +4151,8 @@ create_remote_printer_entry (const char *queue_name,
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
 	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
-            if (strlen(ippGetString(attr, i, NULL)) > 65535)
-              valuebuffer[65535] = '\0';
+	    if (strlen(ippGetString(attr, i, NULL)) > 65535)
+	      valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -4183,8 +4183,8 @@ create_remote_printer_entry (const char *queue_name,
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
 	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
-            if (strlen(ippGetString(attr, i, NULL)) > 65535)
-              valuebuffer[65535] = '\0';
+	    if (strlen(ippGetString(attr, i, NULL)) > 65535)
+	      valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -4218,8 +4218,8 @@ create_remote_printer_entry (const char *queue_name,
 	if (valuebuffer[0] == '\0') {
 	  for (i = 0; i < ippGetCount(attr); i ++) {
 	    strncpy(valuebuffer, ippGetString(attr, i, NULL), sizeof(valuebuffer));
-            if (strlen(ippGetString(attr, i, NULL)) > 65535)
-              valuebuffer[65535] = '\0';
+	    if (strlen(ippGetString(attr, i, NULL)) > 65535)
+	      valuebuffer[65535] = '\0';
 	    debug_printf("  Keyword: %s\n", valuebuffer);
 	    if (valuebuffer[0] != '\0')
 	      break;
@@ -5086,8 +5086,8 @@ gboolean update_cups_queues(gpointer unused) {
       } else {
 	/* Device URI: ipp(s)://<remote host>:631/printers/<remote queue> */
 	strncpy(device_uri, p->uri, sizeof(device_uri));
-        if (strlen(p->uri) > HTTP_MAX_URI-1)
-          device_uri[HTTP_MAX_URI-1] = '\0';
+	if (strlen(p->uri) > HTTP_MAX_URI-1)
+	  device_uri[HTTP_MAX_URI-1] = '\0';
 	debug_printf("Print queue %s is for an IPP network printer, or we do not get notifications from CUPS, using direct device URI %s\n",
 		     p->queue_name, device_uri);
       }
@@ -5191,8 +5191,8 @@ gboolean update_cups_queues(gpointer unused) {
 	  } else if (!strncmp(line, "*Default", 8)) {
 	    cont_line_read = 0;
 	    strncpy(keyword, line + 8, sizeof(keyword));
-            if ((strlen(line) + 8) > 1023)
-              keyword[1023] = '\0';
+	    if ((strlen(line) + 8) > 1023)
+	      keyword[1023] = '\0';
 	    for (keyptr = keyword; *keyptr; keyptr ++)
 	      if (*keyptr == ':' || isspace(*keyptr & 255))
 		break;
@@ -7873,7 +7873,7 @@ read_configuration (const char *filename)
 	if (filter->cregexp)
 	  regfree(filter->cregexp);
 	free(filter);
-        filter = NULL;
+	filter = NULL;
       }
     } else if ((!strcasecmp(line, "BrowseInterval") || !strcasecmp(line, "BrowseTimeout")) && value) {
       int t = atoi(value);

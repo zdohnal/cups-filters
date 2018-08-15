@@ -688,8 +688,8 @@ int print_file(const char *filename, int convert)
 
         case UNKNOWN_FILE:
 	    _log("Cannot process \"%s\": Unknown filetype.\n", filename);
-            if (file != NULL)
-              fclose(file);
+	    if (file != NULL)
+	      fclose(file);
 	    return 0;
     }
 
@@ -851,8 +851,8 @@ int main(int argc, char** argv)
             }
 	    while ((str = arglist_get_value(arglist, "--ppd"))) {
 	        strncpy(job->ppdfile, str, 2048);
-                if (strlen(str) > 2047)
-                  job->ppdfile[2047] = '\0';
+	        if (strlen(str) > 2047)
+	          job->ppdfile[2047] = '\0';
 	        arglist_remove(arglist, "--ppd");
 	    }
 
