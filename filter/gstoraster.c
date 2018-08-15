@@ -452,7 +452,6 @@ gs_spawn (const char *filename,
       if (fds[0] > 0) {
         if (dup(fds[0]) < 0) {
 	  fprintf(stderr, "ERROR: Unable to couple pipe with STDIN of Ghostscript process\n");
-          close(fds[0]);
 	  goto out;
 	}
       } else {
