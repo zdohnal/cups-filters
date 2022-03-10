@@ -892,6 +892,16 @@ AC_ARG_WITH([remote-cups-local-queue-naming],
 )
 
 # =========================================================
+# Do we ignore new queues with the same names as local ones
+# =========================================================
+AC_ARG_ENABLE(ignore-duplicates, AS_HELP_STRING([--enable-ignore-duplicates], [Choose if we ignore new queues with the same names as local queues]),
+	      [IGNORE_DUPLICATES=$enableval], [IGNORE_DUPLICATES="no"])
+
+AS_IF([test "x$IGNORE_DUPLICATES" != "xno"],
+      [AC_DEFINE([IGNORE_DUPLICATES], [1], [Define whether we ignore queues, which names already exist on the machine])]
+)
+
+# =========================================================
 # Select a different shell instead of the default /bin/bash
 # =========================================================
 AC_ARG_WITH([shell],

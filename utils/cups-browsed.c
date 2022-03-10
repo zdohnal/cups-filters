@@ -490,6 +490,11 @@ static unsigned int KeepGeneratedQueuesOnShutdown = 1;
 #else
 static unsigned int KeepGeneratedQueuesOnShutdown = 0;
 #endif
+#ifdef IGNORE_DUPLICATES
+static unsigned int IgnoreDuplicates = 1;
+#else
+static unsigned int IgnoreDuplicates = 0;
+#endif
 static int NewIPPPrinterQueuesShared = 0;
 static int AutoClustering = 1;
 static cups_array_t *clusters;
@@ -571,7 +576,8 @@ static remote_printer_t
 				   const char *domain,
 				   const char *interface,
 				   int family,
-				   void *txt);
+				   void *txt,
+				   const char *device_uri);
 
 #if (CUPS_VERSION_MAJOR > 1) || (CUPS_VERSION_MINOR > 5)
 #define HAVE_CUPS_1_6 1
@@ -5859,7 +5865,8 @@ get_local_queue_name(const char *service_name,
 		     const char *resource,
 		     const char *remote_host,
 		     int *is_cups_queue,
-		     const char *exclude) {
+		     const char *exclude,
+		     const char *device_uri) {
   char *queue_name = NULL, *backup_queue_name = NULL,
     *local_queue_name = NULL, *local_queue_name_lower = NULL;
   local_printer_t *local_printer = NULL;
@@ -5921,7 +5928,8 @@ get_local_queue_name(const char *service_name,
     free(local_queue_name_lower);
     /* To decide on whether the queue name is already taken, only
        consider CUPS queues not created by us. */
-    if (local_printer && !local_printer->cups_browsed_controlled) {
+    if (local_printer && !local_printer->cups_browsed_controlled &&
+	(device_uri && )) {
       debug_printf("Queue name %s already taken.\n",
 		   queue_name);
       local_queue_name = NULL;
@@ -9422,7 +9430,8 @@ examine_discovered_printer_record(const char *host,
 				  const char *domain,
 				  const char *interface,
 				  int family,
-				  void *txt) {
+				  void *txt,
+				  const char *device_uri) {
 
   char uri[HTTP_MAX_URI];
   char *remote_host = NULL, *pdl = NULL,
@@ -9627,7 +9636,7 @@ examine_discovered_printer_record(const char *host,
   /* Determine the queue name */
   pthread_rwlock_unlock(&lock);
   local_queue_name = get_local_queue_name(service_name, make_model, resource,
-					  remote_host, &is_cups_queue, NULL);
+					  remote_host, &is_cups_queue, NULL, device_uri);
   pthread_rwlock_wrlock(&lock);
   if (local_queue_name == NULL)
     goto fail;
@@ -10228,7 +10237,7 @@ static void resolve_callback(void* arg) {
 					       host_name : "localhost"),
 					      addrstr, port, rp_value, name,
 					      "", instance, type, domain,
-					      ifname, addr->sa_family, txt);
+					      ifname, addr->sa_family, txt, NULL);
 	    pthread_rwlock_unlock(&lock);
 	  } else {
 	    pthread_rwlock_wrlock(&lock);
@@ -10237,7 +10246,7 @@ static void resolve_callback(void* arg) {
 					      NULL, port, rp_value,
 					      name, "", instance, type,
 					      domain, ifname, addr->sa_family,
-					      txt);
+					      txt, NULL);
 	    pthread_rwlock_unlock(&lock);
 	  }
 	} else
@@ -10259,7 +10268,7 @@ static void resolve_callback(void* arg) {
 					     (address->proto ==
 					      AVAHI_PROTO_INET6 ? AF_INET6 :
 					      0)),
-					    txt);
+					    txt, NULL);
 	  pthread_rwlock_unlock(&lock);
 	} else
 	  debug_printf("Avahi Resolver: Service '%s' of type '%s' in domain '%s' skipped, host name not supplied.\n",
@@ -10709,7 +10718,7 @@ void avahi_init() {
  */
 void
 found_cups_printer (const char *remote_host, const char *uri,
-		    const char *location, const char *info)
+		    const char *device_uri, const char *location, const char *info)
 {
   char scheme[32];
   char username[64];
@@ -10781,7 +10790,8 @@ found_cups_printer (const char *remote_host, const char *uri,
 					      service_name,
 					      location ? location : "",
 					      info ? info : "", "", "", "", 0,
-					      NULL);
+					      NULL,
+                device_uri ? device_uri : NULL);
   pthread_rwlock_unlock(&lock);
 
   if (printer &&
@@ -10904,7 +10914,7 @@ process_browse_data (GIOChannel *source,
     return TRUE;
 
   if (!(type & CUPS_PRINTER_DELETE))
-    found_cups_printer (remote_host, uri, location, info);
+    found_cups_printer (remote_host, uri, NULL, location, info);
 
   if (in_shutdown == 0)
     recheck_timer ();
@@ -11062,7 +11072,7 @@ browse_poll_get_printers (browsepoll_t *context, http_t *conn)
   for (attr = ippFirstAttribute(response); attr;
        attr = ippNextAttribute(response)) {
     browsepoll_printer_t *printer;
-    const char *uri, *location, *info;
+    const char *uri, *location, *info, *device_uri;
 
     while (attr && ippGetGroupTag(attr) != IPP_TAG_PRINTER)
       attr = ippNextAttribute(response);
@@ -11073,10 +11083,14 @@ browse_poll_get_printers (browsepoll_t *context, http_t *conn)
     uri = NULL;
     info = NULL;
     location = NULL;
+    device_uri = NULL;
     while (attr && ippGetGroupTag(attr) == IPP_TAG_PRINTER) {
       if (!strcasecmp (ippGetName(attr), "printer-uri-supported") &&
 	  ippGetValueTag(attr) == IPP_TAG_URI)
 	uri = ippGetString(attr, 0, NULL);
+      else if (!strcasecmp (ippGetName(attr), "device-uri") &&
+	       ippGetValueTag(attr) == IPP_TAG_URI)
+	device_uri = ippGetString(attr, 0, NULL);
       else if (!strcasecmp (ippGetName(attr), "printer-location") &&
 	       ippGetValueTag(attr) == IPP_TAG_TEXT)
 	location = ippGetString(attr, 0, NULL);
@@ -11087,7 +11101,7 @@ browse_poll_get_printers (browsepoll_t *context, http_t *conn)
     }
 
     if (uri) {
-      found_cups_printer (context->server, uri, location, info);
+      found_cups_printer (context->server, uri, device_uri, location, info);
       printer = new_browsepoll_printer (uri, location, info);
       printers = g_list_insert (printers, printer, 0);
     }
@@ -11310,7 +11324,7 @@ browsepoll_printer_keepalive (gpointer data, gpointer user_data)
   const char *server = user_data;
   debug_printf("browsepoll_printer_keepalive() in THREAD %ld\n",
 	       pthread_self());
-  found_cups_printer (server, printer->uri_supported, printer->location,
+  found_cups_printer (server, printer->uri_supported, NULL, printer->location,
 		      printer->info);
 }
 
