@@ -187,7 +187,8 @@ pkgfilter_PROGRAMS += \
 endif
 if ENABLE_FOOMATIC
 pkgfilter_PROGRAMS += \
-	foomatic-rip
+	foomatic-rip \
+	foomatic-hash
 endif
 if ENABLE_UNIVERSAL_CUPS_FILTER
 pkgfilter_PROGRAMS += \
@@ -302,6 +303,14 @@ foomatic_rip_LDADD = \
 	-lm \
 	$(LIBCUPSFILTERS_LIBS) \
 	$(LIBPPD_LIBS)
+
+foomatic_hash_SOURCES = \
+	filter/foomatic-rip/foomatic-hash.c
+foomatic_hash_CFLAGS = \
+	-DCONFIG_PATH='"$(sysconfdir)/foomatic"' \
+	$(CUPS_CFLAGS)
+foomatic_hash_LDADD = \
+	$(CUPS_LIBS)
 
 gstoraster_SOURCES = \
 	filter/gstoraster.c
@@ -623,6 +632,7 @@ endif
 uninstall-hook:
 if ENABLE_FOOMATIC
 	$(RM) $(DESTDIR)$(bindir)/foomatic-rip
+	$(RM) $(DESTDIR)$(bindir)/foomatic-hash
 endif
 if ENABLE_DRIVERLESS
 	$(RM) $(DESTDIR)$(bindir)/driverless
