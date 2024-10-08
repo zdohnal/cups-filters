@@ -188,6 +188,7 @@ endif
 if ENABLE_FOOMATIC
 pkgfilter_PROGRAMS += \
 	foomatic-rip \
+	foomatic-scan \
 	foomatic-hash
 endif
 if ENABLE_UNIVERSAL_CUPS_FILTER
@@ -307,10 +308,18 @@ foomatic_rip_LDADD = \
 foomatic_hash_SOURCES = \
 	filter/foomatic-rip/foomatic-hash.c
 foomatic_hash_CFLAGS = \
-	-DCONFIG_PATH='"$(sysconfdir)/foomatic"' \
 	$(CUPS_CFLAGS)
 foomatic_hash_LDADD = \
 	$(CUPS_LIBS)
+
+foomatic_scan_SOURCES = \
+	filter/foomatic-rip/foomatic-scan.c
+foomatic_scan_CFLAGS = \
+	$(CUPS_CFLAGS) \
+	$(LIBPPD_CFLAGS)
+foomatic_scan_LDADD = \
+	$(CUPS_LIBS) \
+	$(LIBPPD_LIBS)
 
 gstoraster_SOURCES = \
 	filter/gstoraster.c
