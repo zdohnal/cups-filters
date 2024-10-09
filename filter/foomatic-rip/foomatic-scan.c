@@ -18,7 +18,7 @@
 #include <ppd/ppd.h>
 
 
-#ifdef CUPS_MAJOR_VERSION <= 2 && CUPS_MINOR_VERSION < 5
+#if CUPS_VERSION_MAJOR <= 2 && CUPS_VERSION_MINOR < 5
 #  define cupsArrayGetFirst(ar) cupsArrayFirst(ar)
 #  define cupsArrayGetNext(ar) cupsArrayNext(ar)
 #endif
@@ -214,14 +214,13 @@ dstrtrim_right(dstr_t *ds)
 }
 
 
-int
+void
 read_ppd(cups_file_t *file)
 {
   char line[256];            // PPD line length is max 255 (excl. \0)
   char *p;
   char key[128], name[64], text[64];
   unsigned char hash[64];
-  char hash_string[129];
   dstr_t *value = create_dstr(); // value can span multiple lines
 
   dstrassure(value, 256);
@@ -314,7 +313,7 @@ get_values_from_ppd(char *filename)
     return (1);
   }
 
-  ret = read_ppd(file);
+  read_ppd(file);
 
   cupsFileClose(file);
 
@@ -326,7 +325,7 @@ copy_col(char *path)
 {
   ppd_collection_t *col = NULL;
 
-  if ((col = (ppd_collection_t)calloc(1, sizeof(ppd_collection_t))) == NULL)
+  if ((col = (ppd_collection_t*)calloc(1, sizeof(ppd_collection_t))) == NULL)
   {
     fprintf(stderr, "Cannot allocate memory for PPD collection.\n");
     return (NULL);
@@ -345,7 +344,7 @@ copy_col(char *path)
 }
 
 
-void *
+void
 free_col(ppd_collection_t *col)
 {
   free(col->path);
@@ -376,7 +375,7 @@ get_values_from_ppdpaths(char *ppdpaths)
   ppd_info_t *ppd = NULL;
 
 
-  if ((ppd_collections = cupsArrayNew3(compare_col, NULL, NULL, 0, (cups_acopy_func_t)copy_col, (cups_afree_func_t)free_col)) == NULL)
+  if ((ppd_collections = cupsArrayNew3((cups_array_func_t)compare_col, NULL, NULL, 0, (cups_acopy_func_t)copy_col, (cups_afree_func_t)free_col)) == NULL)
   {
     fprintf(stderr, "Could not allocate PPD collection array.\n");
     return (1);
@@ -404,20 +403,21 @@ get_values_from_ppdpaths(char *ppdpaths)
     goto end;
   }
 
-  for (ppd = (ppd_info_t*)cupsArrayGetFirst(ppds); *ppd; ppd = (ppd_info_t*)cupsArrayGetNext(ppds))
+  for (ppd = (ppd_info_t*)cupsArrayGetFirst(ppds); ppd; ppd = (ppd_info_t*)cupsArrayGetNext(ppds))
   {
     if ((ppdfile = ppdCollectionGetPPD(ppd->record.name, ppd_collections, NULL, NULL)) == NULL)
       continue;
 
-    ret |= read_ppd(ppdfile);
+    read_ppd(ppdfile);
 
     cupsFileClose(ppdfile);
   }
 
 
 end:
-  for (ppd = (ppd_info_t*)cupsArrayGetFirst(ppds); *ppd; ppd = (ppd_info_t*)cupsArrayGetNext(ppds))
+  for (ppd = (ppd_info_t*)cupsArrayGetFirst(ppds); ppd; ppd = (ppd_info_t*)cupsArrayGetNext(ppds))
     free(ppd);
+
   cupsArrayDelete(ppds);
 
   cupsArrayDelete(ppd_collections);
@@ -446,9 +446,6 @@ int
 main(int argc,
      char** argv)
 {
-  char *ppdname = NULL,
-       *ppdpaths = NULL;
-
   if (argc != 4)
   {
     help();

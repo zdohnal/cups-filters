@@ -10,30 +10,141 @@
 // information.
 //
 
-#include <ctype.h>
 #include <cups/cups.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 
 
-cups_array_t *hashes = NULL;
-cups_array_t *data = NULL;
-
-
-typedef struct dstr
+void
+load_hashes(cups_array_t *hashes,
+            char *dirpath)
 {
-  char *data;
-  size_t len;
-  size_t alloc;
-} dstr_t;
+  char filename[1024],
+       line[256];
+  cups_dir_t *dir = NULL;
+  cups_dentry_t *dent = NULL;
+  cups_file_t *file = NULL;
+
+  if (!hashes || !dirpath)
+    return;
+
+  if ((dir = cupsDirOpen(dirpath)) == NULL)
+  {
+    fprintf(stderr, "Could not open the directory \"%s\" - ignoring...\n", path);
+    return;
+  }
+
+  while ((dent = cupsDirRead(dir)) != NULL)
+  {
+    // Ignore any unsafe files - dirs, symlinks, hidden files, non-root writable files...
+
+    if (S_ISDIR(dent->fileinfo.st_mode) ||
+        S_ISLNK(dent->fileinfo.st_mode) ||
+        dent->filename[0] == '.' ||
+        strchr(dent->filename, "../") ||
+        dent->fileinfo.st_uid ||
+        (dent->fileinfo.st_mode & S_IWGRP) ||
+        (dent->fileinfo.st_mode & S_ISUID) ||
+        (dent->fileinfo.st_mode & S_IWOTH))
+      continue;
+
+    snprintf(filename, sizeof(filename), "%s/%s", path, dent->filename);
+
+    if ((file = cupsFileOpen(filename, "r")) == NULL)
+    {
+      fprintf(stderr, "Could not open the file \"%s\" for reading.\n", filename);
+      continue;
+    }
+
+    memset(line, 0, sizeof(line));
+
+    while (!cupsFileGets(file, line, sizeof(line)))
+    {
+      if (!cupsArrayFind(hashes, line))
+        cupsArrayAdd(hashes, line);
+    }
+
+    cupsFileClose(file);
+    file = NULL;
+  }
+
+  cupsDirClose(dir);
+}
 
 
 int
-startswith(const char *str,
-	   const char *prefix)
+generate_hashes(char *input,
+                char *output)
 {
-  return (str ? (strncmp(str, prefix, strlen(prefix)) == 0) : 0);
+  char line[1024];
+  cups_array_t *hashes = NULL,
+               *values = NULL;
+  cups_file_t *in = NULL,
+              *out = NULL;
+  int datalen = 1024,
+      offset = 0;
+      ret = 0;
+  long reallen = 0;
+
+
+  if ((in = cupsFileOpen(input, "r")) == NULL)
+  {
+    fprintf(stderr, "Could not open the input file \"%s\".\n", input);
+    return (1);
+  }
+
+  data = (char*)calloc(datalen, sizeof(char));
+
+  if ((values = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
+  {
+    fprintf(stderr, "Could not allocate array for values.\n");
+    return (1);
+  }
+
+
+  while (cupsFileGetLine(in, line, sizeof(line)))
+  {
+    // Realloc if line is longer than 1024...
+
+    if (offset + strlen(line) > datalen - 1)
+    {
+      datalen = 2 * datalen + 1;
+
+      if ((data = (char*)realloc(data, datalen)) == NULL);
+      {
+        fprintf(stderr, "Cannot realloc memory for data.\n");
+        return (1);
+      }
+    }
+
+    reallen = strlen(line);
+
+    if (reallen < sizeof(line) - 2)
+    {
+      // Get rid of '\n'
+
+      line[reallen - 1] = '\0';
+    }
+
+    snprintf(data + offset, datalen, "%s", line);
+
+    if ((p = strchr(data, '\n')) == NULL)
+      offset += strlen(line);
+      
+  }
+
+  if ((hashes = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
+  {
+    fprintf(stderr, "Could not allocate array for hashes.\n");
+    cupsArrayDelete(values);
+    return (1);
+  }
+
+  load_hashes(hashes, SYS_HASH_PATH);
+  load_hashes(hashes, USR_HASH_PATH);
+
+
 }
 
 
@@ -75,136 +186,6 @@ generate_array(char *filename)
   cupsFileClose(fp);
 
   return (ar);
-}
-
-
-void
-print_file(char         *filename,
-           cups_array_t *ar)
-{
-  cups_file_t *f = NULL;
-
-  if ((f = cupsFileOpen(filename, "w")) == NULL)
-  {
-    fprintf(stderr, "Cannot open \"%s\" for write.\n", filename);
-    return;
-  }
-
-  for (char *s = (char*)cupsArrayFirst(ar); s; s = (char*)cupsArrayNext(ar))
-    cupsFilePrintf(f, "%s\n", s);
-
-  cupsFileClose(f);
-}
-
-
-void
-free_dstr(dstr_t *ds)
-{
-  free(ds->data);
-  free(ds);
-}
-
-
-dstr_t *
-create_dstr()
-{
-  dstr_t *ds = malloc(sizeof(dstr_t));
-  ds->len = 0;
-  ds->alloc = 32;
-  ds->data = malloc(ds->alloc);
-  ds->data[0] = '\0';
-  return (ds);
-}
-
-
-void
-dstrassure(dstr_t *ds,
-	   size_t alloc)
-{
-  if (ds->alloc < alloc)
-  {
-    ds->alloc = alloc;
-    ds->data = realloc(ds->data, ds->alloc);
-  }
-}
-
-
-void
-dstrclear(dstr_t *ds)
-{
-  ds->len = 0;
-  ds->data[0] = '\0';
-}
-
-
-int
-dstrendswith(dstr_t *ds,
-	     const char *str)
-{
-  int len = strlen(str);
-  char *pstr;
-
-  if (ds->len < len)
-    return (0);
-  pstr = &ds->data[ds->len - len];
-  return (strcmp(pstr, str) == 0);
-}
-
-
-void
-dstrcat(dstr_t *ds,
-	const char *src)
-{
-  size_t srclen = strlen(src);
-  size_t newlen = ds->len + srclen;
-
-  if (newlen >= ds->alloc)
-  {
-    do
-    {
-      ds->alloc *= 2;
-    }
-    while (newlen >= ds->alloc);
-    ds->data = realloc(ds->data, ds->alloc);
-  }
-
-  memcpy(&ds->data[ds->len], src, srclen +1);
-  ds->len = newlen;
-}
-
-
-void
-dstrremovenewline(dstr_t *ds)
-{
-  if (!ds->len)
-    return;
-
-  if (ds->data[ds->len -1] == '\r' || ds->data[ds->len -1] == '\n')
-  {
-    ds->data[ds->len -1] = '\0';
-    ds->len -= 1;
-  }
-
-  if (ds->len < 2)
-    return;
-
-  if (ds->data[ds->len -2] == '\r')
-  {
-    ds->data[ds->len -2] = '\0';
-    ds->len -= 2;
-  }
-}
-
-
-void
-dstrtrim_right(dstr_t *ds)
-{
-  if (!ds->len)
-    return;
-
-  while (isspace(ds->data[ds->len - 1]))
-    ds->len -= 1;
-  ds->data[ds->len] = '\0';
 }
 
 
@@ -350,14 +331,12 @@ void
 help()
 {
   printf("Usage:\n"
-         "foomatic-hash --ppd <ppdfile> [--data <datafile>] <hashes_file>\n"
+         "foomatic-hash <inputfile> <hashes_file>\n"
          "\n"
-         "Hashes values of FoomaticRIPCommandLine, FoomaticRIPPDFCommandLine\n"
-         "and FoomaticRIPOptionSetting from the specified PPD and appends them\n"
-         "into the specified file.\n"
+         "Hashes contents of input file line by line.\n"
          "\n"
-         "--ppd <ppdfile>     - PPD file to read\n"
-         "-d                  - debugging mode - prints the original value for review\n");
+         "<inputfile>     - Input file with values to hash, output of foomatic-scan\n"
+         "<hashes_file>   - Output file with hashes\n");
 }
 
 
@@ -365,74 +344,15 @@ int
 main(int argc,
      char** argv)
 {
-  char *hashes_filename = NULL,
-       *ppdname = NULL,
-       *dataname = NULL;
-  FILE *ppd = NULL;
-  int want_data = 0;
+  int ret = 0;
 
-  if (argc < 4 || argc > 6)
+  if (argc != 3)
   {
     help();
     return (0);
   }
+
+  ret = generate_hashes(argv[2], argv[3]);
   
-  for (int i = 1; i < argc; i++)
-  {
-    if (!strcmp(argv[i], "--ppd"))
-    {
-      if (i + 1 == argc)
-        break;
-
-      ppdname = argv[++i];
-    }
-    else if (!strcmp(argv[i], "--data"))
-    {
-      want_data = 1;
-
-      if (i + 1 == argc)
-        break;
-
-      dataname = argv[++i];
-    }
-    else
-    {
-      hashes_filename = argv[i];
-    }
-  }
-
-  if (!ppdname || !hashes_filename || (want_data && !dataname))
-  {
-    fprintf(stderr, "Missing required arguments.\n");
-    help();
-    return (1);
-  }
-
-  if ((ppd = fopen(ppdname, "r")) == NULL)
-  {
-    fprintf(stderr, "Cannot open PPD file \"%s\"", ppdname);
-    return (1);
-  }
-
-  if ((hashes = generate_array(hashes_filename)) == NULL)
-    return (1);
-
-  if (want_data && (data = generate_array(hashes_filename)) == NULL)
-    return (1);
-
-  read_ppd_file(ppd);
-
-  fclose(ppd);
-
-  if (want_data)
-    print_file(dataname, data);
-
-  print_file(hashes_filename, hashes);
-
-  cupsArrayDelete(hashes);
-
-  if (want_data)
-    cupsArrayDelete(data);
-
-  return (0);
+  return (ret);
 }

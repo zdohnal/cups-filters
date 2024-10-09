@@ -296,6 +296,8 @@ foomatic_rip_SOURCES = \
 	filter/foomatic-rip/util.h
 foomatic_rip_CFLAGS = \
 	-DCONFIG_PATH='"$(sysconfdir)/foomatic"' \
+	-DSYS_HASH_PATH='"$(datadir)/foomatic/hash.d"' \
+	-DUSR_HASH_PATH='"$(sysconfdir)/foomatic/hash.d"' \
 	$(CUPS_CFLAGS) \
 	$(LIBCUPSFILTERS_CFLAGS) \
 	$(LIBPPD_CFLAGS)
@@ -308,6 +310,8 @@ foomatic_rip_LDADD = \
 foomatic_hash_SOURCES = \
 	filter/foomatic-rip/foomatic-hash.c
 foomatic_hash_CFLAGS = \
+	-DSYS_HASH_PATH='"$(datadir)/foomatic/hash.d"' \
+	-DUSR_HASH_PATH='"$(sysconfdir)/foomatic/hash.d"' \
 	$(CUPS_CFLAGS)
 foomatic_hash_LDADD = \
 	$(CUPS_LIBS)
@@ -630,6 +634,8 @@ install-exec-hook:
 	$(INSTALL) -d -m 755 $(DESTDIR)$(pkgbackenddir)
 if ENABLE_FOOMATIC
 	$(LN_SRF) $(DESTDIR)$(pkgfilterdir)/foomatic-rip $(DESTDIR)$(bindir)
+	$(INSTALL) -d -m 644 $(DESTDIR)$(datadir)/foomatic/hash.d
+	$(INSTALL) -d -m 644 $(DESTDIR)$(sysconfdir)/foomatic/hash.d
 endif
 if ENABLE_DRIVERLESS
 	$(LN_SRF) $(DESTDIR)$(pkgppdgendir)/driverless $(DESTDIR)$(bindir)
@@ -641,7 +647,8 @@ endif
 uninstall-hook:
 if ENABLE_FOOMATIC
 	$(RM) $(DESTDIR)$(bindir)/foomatic-rip
-	$(RM) $(DESTDIR)$(bindir)/foomatic-hash
+	$(RMDIR) $(DESTDIR)$(datadir)/foomatic/hash.d
+	$(RMDIR) $(DESTDIR)$(sysconfdir)/foomatic/hash.d
 endif
 if ENABLE_DRIVERLESS
 	$(RM) $(DESTDIR)$(bindir)/driverless
