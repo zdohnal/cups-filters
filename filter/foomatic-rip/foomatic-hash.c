@@ -78,6 +78,7 @@ generate_hashes(char *input,
                 char *output)
 {
   char line[1024];
+  char *data = NULL;
   cups_array_t *hashes = NULL,
                *values = NULL;
   cups_file_t *in = NULL,
@@ -85,7 +86,9 @@ generate_hashes(char *input,
   int datalen = 1024,
       offset = 0;
       ret = 0;
-  long reallen = 0;
+  unsigned char hash[32];
+  unsigned char hash_string[65];
+  unsigned long reallen = 0;
 
 
   if ((in = cupsFileOpen(input, "r")) == NULL)
@@ -99,231 +102,117 @@ generate_hashes(char *input,
   if ((values = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
   {
     fprintf(stderr, "Could not allocate array for values.\n");
-    return (1);
+
+    ret = 1;
+
+    goto fail;
   }
 
 
   while (cupsFileGetLine(in, line, sizeof(line)))
   {
-    // Realloc if line is longer than 1024...
+    reallen = strlen(line);
 
-    if (offset + strlen(line) > datalen - 1)
+    // Realloc if line is longer than 1023...
+
+    if (offset + reallen > datalen - 1)
     {
       datalen = 2 * datalen + 1;
 
       if ((data = (char*)realloc(data, datalen)) == NULL);
       {
         fprintf(stderr, "Cannot realloc memory for data.\n");
-        return (1);
+
+        ret = 1;
+
+        goto fail;
       }
-    }
-
-    reallen = strlen(line);
-
-    if (reallen < sizeof(line) - 2)
-    {
-      // Get rid of '\n'
-
-      line[reallen - 1] = '\0';
     }
 
     snprintf(data + offset, datalen, "%s", line);
 
-    if ((p = strchr(data, '\n')) == NULL)
-      offset += strlen(line);
-      
+    memcpy(line, 0, sizeof(line));
+
+    if (data[offset + reallen - 1] != '\n')
+    {
+      // Used only if the current line is of 1024+ characters - read until we have the whole line
+
+      offset += reallen;
+      continue;
+    }
+    else
+    {
+      // Get rid of '\n'
+
+      data[offset + reallen - 1] = '\0';
+
+      if (!cupsArrayFind(values, data))
+        cupsArrayAdd(values, data);
+
+      offset = 0;
+      memcpy(data, 0, datalen);
+    }
   }
 
   if ((hashes = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
   {
     fprintf(stderr, "Could not allocate array for hashes.\n");
-    cupsArrayDelete(values);
-    return (1);
+
+    ret = 1;
+
+    goto fail;
   }
 
   load_hashes(hashes, SYS_HASH_PATH);
   load_hashes(hashes, USR_HASH_PATH);
 
-
-}
-
-
-cups_array_t *
-generate_array(char *filename)
-{
-  char          line[2048];
-  cups_array_t *ar = NULL;
-  cups_file_t  *fp = NULL;
-
-  memset(line, 0, sizeof(line));
-
-  if((ar = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
+  for (data = (char*)cupsArrayGetFirst(values); data; data = (char*)cupsArrayGetNext(values))
   {
-    fprintf(stderr, "Cannot allocate array.\n");
-    return (NULL);
-  }
-
-  if (!access(filename, F_OK))
-  {
-    fprintf(stderr, "No such file exists, try creating a new later.\n");
-    return (ar);
-  }
-
-  if ((fp = cupsFileOpen(filename, "r")) == NULL)
-  {
-    fprintf(stderr, "Cannot open file \"%s\" for read.\n", filename);
-    cupsArrayDelete(ar);
-    return (NULL);
-  }
-
-  while (cupsFileGets(fp, line, sizeof(line)))
-  {
-    cupsArrayAdd(ar, line);
-
-    memset(line, 0, sizeof(line));
-  }
-
-  cupsFileClose(fp);
-
-  return (ar);
-}
-
-
-void
-read_ppd_file(FILE *file)
-{
-  char line[256];            // PPD line length is max 255 (excl. \0)
-  char *p;
-  char key[128], name[64], text[64];
-  unsigned char hash[64];
-  char hash_string[129];
-  dstr_t *value = create_dstr(); // value can span multiple lines
-
-  memset(hash_string, 0, sizeof(hash_string));
-
-  dstrassure(value, 256);
-
-  while (!feof(file))
-  {
-    fgets(line, 256, file);
-
-    if (line[0] != '*' || startswith(line, "*%"))
+    if ((cupsHashData("sha2-256", data, strlen(data), hash, sizeof(hash))) == -1)
+    {
+      fprintf(stderr, "\"%s\" - Error when hashing\n", data);
       continue;
+    }
 
-    // get the key
-    if (!(p = strchr(line, ':')))
+    if ((cupsHashString(hash, sizeof(hash), hash_string, sizeof(hash_string))) == NULL)
+    {
+      fprintf(stderr, "Error when encoding hash to hexadecimal\n");
       continue;
-    *p = '\0';
-
-    key[0] = name[0] = text[0] = '\0';
-    sscanf(line, "*%127s%*[ \t]%63[^ \t/=)]%*1[/=]%63[^\n]", key, name, text);
-
-    // get the value
-    dstrclear(value);
-    sscanf(p +1, " %255[^\r\n]", value->data);
-    value->len = strlen(value->data);
-    if (!value->len)
-      fprintf(stderr, "PPD: Missing value for key \"%s\"\n", line);
-
-    while (1)
-    {
-      // "&&" is the continue-on-next-line marker
-      if (dstrendswith(value, "&&"))
-      {
-	value->len -= 2;
-	value->data[value->len] = '\0';
-      }
-      // quoted but quotes are not yet closed
-      else if (value->data[0] == '\"' && !strchr(value->data +1, '\"'))
-	dstrcat(value, "\n"); // keep newlines in quoted string
-      // not quoted, or quotes already closed
-      else
-	break;
-
-      fgets(line, 256, file);
-      dstrcat(value, line);
-      dstrremovenewline(value);
     }
 
-    memset(hash, 0, sizeof(hash));
-
-    // remove quotes
-    if (value->data[0] == '\"')
-    {
-      memmove(value->data, value->data +1, value->len +1);
-      p = strrchr(value->data, '\"');
-      if (!p)
-      {
-	fprintf(stderr, "Invalid line: \"%s: ...\"\n", key);
-	continue;
-      }
-      *p = '\0';
-    }
-    // remove last newline
-    dstrremovenewline(value);
-
-    // remove last whitespace
-    dstrtrim_right(value);
-
-    if (!value->data || !value->data[0])
-      continue;
-
-    if (strcmp(key, "FoomaticRIPCommandLine") == 0)
-    {
-      if ((cupsHashData("sha2-256", value->data, strlen(value->data), hash, sizeof(hash))) == -1)
-      {
-        fprintf(stderr, "\"%s\" - Error when hashing\n", value->data);
-        continue;
-      }
-
-      if ((cupsHashString(hash, sizeof(hash), hash_string, sizeof(hash_string))) == NULL)
-      {
-        fprintf(stderr, "Error when encoding hash to hexadecimal\n");
-        continue;
-      }
-    }
-    else if (strcmp(key, "FoomaticRIPCommandLinePDF") == 0)
-    {
-      if ((cupsHashData("sha2-256", value->data, strlen(value->data), hash, sizeof(hash))) == -1)
-      {
-        fprintf(stderr, "\"%s\" - Error when hashing\n", value->data);
-        continue;
-      }
-
-      if ((cupsHashString(hash, sizeof(hash), hash_string, sizeof(hash_string))) == NULL)
-      {
-        fprintf(stderr, "Error when encoding hash to hexadecimal\n");
-        continue;
-      }
-    }
-    else if (!strcmp(key, "FoomaticRIPOptionSetting"))
-    {
-      if ((cupsHashData("sha2-256", value->data, strlen(value->data), hash, sizeof(hash))) == -1)
-      {
-        fprintf(stderr, "\"%s\" - Error when hashing\n", value->data);
-        continue;
-      }
-
-      if ((cupsHashString(hash, sizeof(hash), hash_string, sizeof(hash_string))) == NULL)
-      {
-        fprintf(stderr, "Error when encoding hash to hexadecimal\n");
-        continue;
-      }
-    }
-
-    if (*hash_string)
-    {
-      if (!cupsArrayFind(hashes, hash_string))
-        cupsArrayAdd(hashes, hash_string);
-
-      if (data && !cupsArrayFind(data, value->data))
-        cupsArrayAdd(data, value->data);
-
-      memset(hash_string, 0, sizeof(hash_string));
-    }
+    if (!cupsArrayFind(hashes, hash_string))
+      cupsArrayAdd(hashes, hash_string);
   }
 
-  free_dstr(value);
+  if ((out = cupsFileOpen(output, "w")) == NULL)
+  {
+    fprintf(stderr, "The file \"%s\" cannot be opened for write.\n", output);
+
+    ret = 1;
+
+    goto fail;
+  }
+
+  for (data = (char*)cupsArrayGetFirst(hashes); data; data = (char*)cupsArrayGetNext(hashes))
+    cupsFilePrintf(out, "%s\n", data);
+
+fail:
+  if (in)
+    cupsFileClose(in);
+
+  if (values)
+    cupsArrayDelete(values);
+
+  if (data)
+    free(data);
+
+  if (hashes)
+    cupsArrayDelete(hashes);
+
+  if (out)
+    cupsFileClose(out);
+
+  return (ret);
 }
 
 
