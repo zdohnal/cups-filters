@@ -277,6 +277,26 @@ commandtopclx_LDADD = \
 	$(LIBPPD_LIBS) \
 	$(CUPS_LIBS)
 
+lib_LTLIBRARIES += libutil.la
+
+libutil_la_SOURCES = \
+	filter/foomatic-rip/util.h \
+	filter/foomatic-rip/util.c
+
+libutil_la_CFLAGS = \
+	-DCONFIG_PATH='"$(sysconfdir)/foomatic"' \
+	-DSYS_HASH_PATH='"$(datadir)/foomatic/hash.d"' \
+	-DUSR_HASH_PATH='"$(sysconfdir)/foomatic/hash.d"' \
+	$(CUPS_CFLAGS) \
+	$(LIBCUPSFILTERS_CFLAGS) \
+	$(LIBPPD_CFLAGS)
+	
+libutil_la_LDADD = \
+	$(CUPS_LIBS) \
+	-lm \
+	$(LIBCUPSFILTERS_LIBS) \
+	$(LIBPPD_LIBS)
+
 foomatic_rip_SOURCES = \
 	filter/foomatic-rip/foomaticrip.c \
 	filter/foomatic-rip/foomaticrip.h \
@@ -295,35 +315,36 @@ foomatic_rip_SOURCES = \
 	filter/foomatic-rip/util.c \
 	filter/foomatic-rip/util.h
 foomatic_rip_CFLAGS = \
-	-DCONFIG_PATH='"$(sysconfdir)/foomatic"' \
-	-DSYS_HASH_PATH='"$(datadir)/foomatic/hash.d"' \
-	-DUSR_HASH_PATH='"$(sysconfdir)/foomatic/hash.d"' \
 	$(CUPS_CFLAGS) \
 	$(LIBCUPSFILTERS_CFLAGS) \
-	$(LIBPPD_CFLAGS)
+	$(LIBPPD_CFLAGS) \
+	-I/$(srcdir)/filter/foomatic-rip/
 foomatic_rip_LDADD = \
 	$(CUPS_LIBS) \
 	-lm \
 	$(LIBCUPSFILTERS_LIBS) \
-	$(LIBPPD_LIBS)
+	$(LIBPPD_LIBS) \
+	libutil.la
 
 foomatic_hash_SOURCES = \
 	filter/foomatic-rip/foomatic-hash.c
 foomatic_hash_CFLAGS = \
-	-DSYS_HASH_PATH='"$(datadir)/foomatic/hash.d"' \
-	-DUSR_HASH_PATH='"$(sysconfdir)/foomatic/hash.d"' \
-	$(CUPS_CFLAGS)
+	$(CUPS_CFLAGS) \
+	-I/$(srcdir)/filter/foomatic-rip/
 foomatic_hash_LDADD = \
-	$(CUPS_LIBS)
+	$(CUPS_LIBS) \
+	libutil.la
 
 foomatic_scan_SOURCES = \
 	filter/foomatic-rip/foomatic-scan.c
 foomatic_scan_CFLAGS = \
 	$(CUPS_CFLAGS) \
-	$(LIBPPD_CFLAGS)
+	$(LIBPPD_CFLAGS) \
+	-I/$(srcdir)/filter/foomatic-rip/
 foomatic_scan_LDADD = \
 	$(CUPS_LIBS) \
-	$(LIBPPD_LIBS)
+	$(LIBPPD_LIBS) \
+	libutil.la
 
 gstoraster_SOURCES = \
 	filter/gstoraster.c

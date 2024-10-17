@@ -1,10 +1,10 @@
 //
-// foomaticrip.c
+// foomatic-hash.c
 //
-// Copyright (C) 2008 Till Kamppeter <till.kamppeter@gmail.com>
-// Copyright (C) 2008 Lars Karlitski (formerly Uebernickel) <lars@karlitski.net>
+// Copyright (C) 2024 Zdenek Dohnal <zdohnal@redhat.com>
 //
-// This file is part of foomatic-rip.
+// This file converts output of foomatic-scan - values of FoomaticRIPCommandLine,
+// FoomaticRIPCommandLinePDF and FoomaticRIPOptionSetting - into hashes.
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
@@ -20,11 +20,11 @@ void
 load_hashes(cups_array_t *hashes,
             char *dirpath)
 {
-  char filename[1024],
-       line[256];
-  cups_dir_t *dir = NULL;
+  char          filename[1024],
+                line[256];
+  cups_dir_t    *dir = NULL;
   cups_dentry_t *dent = NULL;
-  cups_file_t *file = NULL;
+  cups_file_t   *file = NULL;
 
   if (!hashes || !dirpath)
     return;
@@ -73,28 +73,66 @@ load_hashes(cups_array_t *hashes,
 }
 
 
-int
-generate_hashes(char *input,
-                char *output)
+cups_array_t *
+load_local_hashes()
 {
-  char line[1024];
-  char *data = NULL;
-  cups_array_t *hashes = NULL,
-               *values = NULL;
-  cups_file_t *in = NULL,
-              *out = NULL;
-  int datalen = 1024,
-      offset = 0;
-      ret = 0;
-  unsigned char hash[32];
-  unsigned char hash_string[65];
-  unsigned long reallen = 0;
+  cups_array_t *hashes = NULL;
 
+
+  if ((hashes = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
+  {
+    fprintf(stderr, "Could not allocate array for existing hashes.\n");
+    return (NULL);
+  }
+
+  load_hashes(hashes, SYS_HASH_PATH);
+  load_hashes(hashes, USR_HASH_PATH);
+
+  return (hashes);
+}
+
+
+int
+write_hashes(cups_array_t *hashes,
+             char         *output)
+{
+  char        *data = NULL;
+  cups_file_t *out = NULL;
+
+  if ((out = cupsFileOpen(output, "w")) == NULL)
+  {
+    fprintf(stderr, "The file \"%s\" cannot be opened for write.\n", output);
+
+    return (1);
+  }
+
+  for (data = (char*)cupsArrayGetFirst(hashes); data; data = (char*)cupsArrayGetNext(hashes))
+    cupsFilePrintf(out, "%s\n", data);
+
+  cupsFileClose(out);
+
+  return (0);
+}
+
+
+cups_array_t *
+get_values(char *input)
+{
+  char         line[1024];
+  char         *data = NULL;
+  cups_array_t *values = NULL;
+  cups_file_t  *in = NULL;
+  int          datalen = 1024,
+               offset = 0;
+  size_t       reallen = 0;
+
+
+  memcpy(line, 0, sizeof(line));
 
   if ((in = cupsFileOpen(input, "r")) == NULL)
   {
     fprintf(stderr, "Could not open the input file \"%s\".\n", input);
-    return (1);
+    return (NULL);
   }
 
   data = (char*)calloc(datalen, sizeof(char));
@@ -102,8 +140,6 @@ generate_hashes(char *input,
   if ((values = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
   {
     fprintf(stderr, "Could not allocate array for values.\n");
-
-    ret = 1;
 
     goto fail;
   }
@@ -123,13 +159,11 @@ generate_hashes(char *input,
       {
         fprintf(stderr, "Cannot realloc memory for data.\n");
 
-        ret = 1;
-
         goto fail;
       }
     }
 
-    snprintf(data + offset, datalen, "%s", line);
+    snprintf(data + offset, datalen - offset, "%s", line);
 
     memcpy(line, 0, sizeof(line));
 
@@ -154,6 +188,45 @@ generate_hashes(char *input,
     }
   }
 
+  return (values);
+
+
+fail:
+  if (values)
+    cupsArrayDelete(values);
+
+  if (data)
+    free(data);
+
+  if (in)
+    cupsFileClose(in);
+
+  return (NULL);
+}
+
+
+int
+generate_hash_file(char *input,
+                   char *output)
+{
+  cups_array_t  *allhashes = NULL,
+                *hashes = NULL
+                *values = NULL;
+  int           ret = 0;
+  unsigned char hash[32];
+  unsigned char hash_string[65];
+
+
+  if ((values = get_values(input)) == NULL)
+    return (1);
+
+  if ((allhashes = load_local_hashes()) == NULL)
+  {
+    ret = 1;
+
+    goto fail;
+  }
+
   if ((hashes = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
   {
     fprintf(stderr, "Could not allocate array for hashes.\n");
@@ -162,9 +235,6 @@ generate_hashes(char *input,
 
     goto fail;
   }
-
-  load_hashes(hashes, SYS_HASH_PATH);
-  load_hashes(hashes, USR_HASH_PATH);
 
   for (data = (char*)cupsArrayGetFirst(values); data; data = (char*)cupsArrayGetNext(values))
   {
@@ -180,37 +250,21 @@ generate_hashes(char *input,
       continue;
     }
 
-    if (!cupsArrayFind(hashes, hash_string))
+    if (!cupsArrayFind(allhashes, hash_string))
       cupsArrayAdd(hashes, hash_string);
   }
 
-  if ((out = cupsFileOpen(output, "w")) == NULL)
-  {
-    fprintf(stderr, "The file \"%s\" cannot be opened for write.\n", output);
-
-    ret = 1;
-
-    goto fail;
-  }
-
-  for (data = (char*)cupsArrayGetFirst(hashes); data; data = (char*)cupsArrayGetNext(hashes))
-    cupsFilePrintf(out, "%s\n", data);
+  ret = write_hashes(hashes, output);
 
 fail:
-  if (in)
-    cupsFileClose(in);
-
   if (values)
     cupsArrayDelete(values);
 
-  if (data)
-    free(data);
+  if (allhashes)
+    cupsArrayDelete(allhashes);
 
   if (hashes)
     cupsArrayDelete(hashes);
-
-  if (out)
-    cupsFileClose(out);
 
   return (ret);
 }
@@ -233,7 +287,7 @@ int
 main(int argc,
      char** argv)
 {
-  int ret = 0;
+  int ret;
 
   if (argc != 3)
   {
@@ -241,7 +295,7 @@ main(int argc,
     return (0);
   }
 
-  ret = generate_hashes(argv[2], argv[3]);
+  ret = generate_hash_file(argv[2], argv[3]);
   
   return (ret);
 }

@@ -12,6 +12,7 @@
 
 #include "util.h"
 #include "foomaticrip.h"
+#include "foomatic-lib.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>

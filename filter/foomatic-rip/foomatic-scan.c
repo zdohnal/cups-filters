@@ -10,6 +10,7 @@
 // information.
 //
 
+#include "foomatic-lib.h"
 #include <ctype.h>
 #include <cups/cups.h>
 #include <stdio.h>
@@ -18,21 +19,9 @@
 #include <ppd/ppd.h>
 
 
-#if CUPS_VERSION_MAJOR <= 2 && CUPS_VERSION_MINOR < 5
-#  define cupsArrayGetFirst(ar) cupsArrayFirst(ar)
-#  define cupsArrayGetNext(ar) cupsArrayNext(ar)
-#endif
 
 
 cups_array_t *data = NULL;
-
-
-typedef struct dstr
-{
-  char *data;
-  size_t len;
-  size_t alloc;
-} dstr_t;
 
 
 int
@@ -85,7 +74,7 @@ generate_array(char *filename)
 
 
 void
-print_file(char         *filename,
+write_file(char         *filename,
            cups_array_t *ar)
 {
   cups_file_t *f = NULL;
