@@ -1,6 +1,7 @@
 //
-// foomaticrip.c
+// foomatic-scan.c
 //
+// Copyright (C) 2024-2025 Zdenek Dohnal <zdohnal@redhat.com>
 // Copyright (C) 2008 Till Kamppeter <till.kamppeter@gmail.com>
 // Copyright (C) 2008 Lars Karlitski (formerly Uebernickel) <lars@karlitski.net>
 //
@@ -10,7 +11,7 @@
 // information.
 //
 
-#include "foomatic-lib.h"
+#include "util.h"
 #include <ctype.h>
 #include <cups/cups.h>
 #include <stdio.h>
@@ -19,17 +20,7 @@
 #include <ppd/ppd.h>
 
 
-
-
 cups_array_t *data = NULL;
-
-
-int
-startswith(const char *str,
-	   const char *prefix)
-{
-  return (str ? (strncmp(str, prefix, strlen(prefix)) == 0) : 0);
-}
 
 
 cups_array_t *
@@ -93,123 +84,14 @@ write_file(char         *filename,
 
 
 void
-free_dstr(dstr_t *ds)
-{
-  free(ds->data);
-  free(ds);
-}
-
-
-dstr_t *
-create_dstr()
-{
-  dstr_t *ds = malloc(sizeof(dstr_t));
-  ds->len = 0;
-  ds->alloc = 32;
-  ds->data = malloc(ds->alloc);
-  ds->data[0] = '\0';
-  return (ds);
-}
-
-
-void
-dstrassure(dstr_t *ds,
-	   size_t alloc)
-{
-  if (ds->alloc < alloc)
-  {
-    ds->alloc = alloc;
-    ds->data = realloc(ds->data, ds->alloc);
-  }
-}
-
-
-void
-dstrclear(dstr_t *ds)
-{
-  ds->len = 0;
-  ds->data[0] = '\0';
-}
-
-
-int
-dstrendswith(dstr_t *ds,
-	     const char *str)
-{
-  int len = strlen(str);
-  char *pstr;
-
-  if (ds->len < len)
-    return (0);
-  pstr = &ds->data[ds->len - len];
-  return (strcmp(pstr, str) == 0);
-}
-
-
-void
-dstrcat(dstr_t *ds,
-	const char *src)
-{
-  size_t srclen = strlen(src);
-  size_t newlen = ds->len + srclen;
-
-  if (newlen >= ds->alloc)
-  {
-    do
-    {
-      ds->alloc *= 2;
-    }
-    while (newlen >= ds->alloc);
-    ds->data = realloc(ds->data, ds->alloc);
-  }
-
-  memcpy(&ds->data[ds->len], src, srclen +1);
-  ds->len = newlen;
-}
-
-
-void
-dstrremovenewline(dstr_t *ds)
-{
-  if (!ds->len)
-    return;
-
-  if (ds->data[ds->len -1] == '\r' || ds->data[ds->len -1] == '\n')
-  {
-    ds->data[ds->len -1] = '\0';
-    ds->len -= 1;
-  }
-
-  if (ds->len < 2)
-    return;
-
-  if (ds->data[ds->len -2] == '\r')
-  {
-    ds->data[ds->len -2] = '\0';
-    ds->len -= 2;
-  }
-}
-
-
-void
-dstrtrim_right(dstr_t *ds)
-{
-  if (!ds->len)
-    return;
-
-  while (isspace(ds->data[ds->len - 1]))
-    ds->len -= 1;
-  ds->data[ds->len] = '\0';
-}
-
-
-void
 read_ppd(cups_file_t *file)
 {
   char line[256];            // PPD line length is max 255 (excl. \0)
   char *p;
   char key[128], name[64], text[64];
   unsigned char hash[64];
+
+
   dstr_t *value = create_dstr(); // value can span multiple lines
 
   dstrassure(value, 256);

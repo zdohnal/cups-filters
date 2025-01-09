@@ -1,7 +1,7 @@
 //
 // foomatic-hash.c
 //
-// Copyright (C) 2024 Zdenek Dohnal <zdohnal@redhat.com>
+// Copyright (C) 2024-2025 Zdenek Dohnal <zdohnal@redhat.com>
 //
 // This file converts output of foomatic-scan - values of FoomaticRIPCommandLine,
 // FoomaticRIPCommandLinePDF and FoomaticRIPOptionSetting - into hashes.
@@ -120,6 +120,7 @@ get_values(char *input)
 {
   char         line[1024];
   char         *data = NULL;
+  char         *newdata = NULL;
   cups_array_t *values = NULL;
   cups_file_t  *in = NULL;
   int          datalen = 1024,
@@ -127,7 +128,7 @@ get_values(char *input)
   size_t       reallen = 0;
 
 
-  memcpy(line, 0, sizeof(line));
+  memset(line, 0, sizeof(line));
 
   if ((in = cupsFileOpen(input, "r")) == NULL)
   {
@@ -135,7 +136,12 @@ get_values(char *input)
     return (NULL);
   }
 
-  data = (char*)calloc(datalen, sizeof(char));
+  if ((data = (char*)calloc(datalen, sizeof(char))) == NULL)
+  {
+    fprintf(stderr, "Could not allocate data array.\n");
+
+    goto fail;
+  }
 
   if ((values = cupsArrayNew3((cups_array_func_t)strcmp, NULL, NULL, 0, (cups_acopy_func_t)strdup, (cups_afree_func_t)free)) == NULL)
   {
@@ -155,17 +161,19 @@ get_values(char *input)
     {
       datalen = 2 * datalen + 1;
 
-      if ((data = (char*)realloc(data, datalen)) == NULL);
+      if ((newdata = (char*)realloc(data, datalen)) == NULL);
       {
         fprintf(stderr, "Cannot realloc memory for data.\n");
 
         goto fail;
       }
+      else
+        data = newdata;
     }
 
     snprintf(data + offset, datalen - offset, "%s", line);
 
-    memcpy(line, 0, sizeof(line));
+    memset(line, 0, sizeof(line));
 
     if (data[offset + reallen - 1] != '\n')
     {
@@ -184,7 +192,7 @@ get_values(char *input)
         cupsArrayAdd(values, data);
 
       offset = 0;
-      memcpy(data, 0, datalen);
+      memset(data, 0, datalen);
     }
   }
 
